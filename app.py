@@ -6,34 +6,45 @@ app = Flask(__name__)
 
 # Wind, solar, nuclear, fossil
 input_to_ghg_map = {
-            "nuclear": -0.5,
-            "solar": -0.3,
-            "wind": -0.2,
-            "fossil": 1.5}
+            "nuclear": -0.05,
+            "solar": -0.03,
+            "wind": -0.02,
+            "fossil": .4}
 
-print("run")
+# Possible Disasters and Probability of Occurance
+disasters = {
+    'sea_levels': .01,
+    'electricity_prices': .05,
+    'crop_shortage': .1,
+    'armed_conflict': .22,
+    'hurricane': .65
+}
+
+disaster_cost = {
+    'sea_levels': .2,
+    'electricity_prices': .05,
+    'crop_shortage': .1,
+    'armed_conflict': .01,
+    'hurricane': .3
+}
+
 jsonObject = {
         'Start_Year': 2017,
-        'Money': 100,
-        'GHG': 1000000,
-        'GDP': 1000,
+        'Budget': 100.0,
+        'GHG': 10000.0,
+        'GDP': 100.0,
         'Curr_Year': 2017,
         'solar': 0,
         'wind': 0,
         'nuclear': 0,
         'fossil': 0,
-        'GDP_Growth': 1.1,
-        'economy': 1.1,
+        'GDP_Growth': 1.01,
 
         'Sea_Levels': 0,
         'Electricity_Price': 0,
         'Agriculture': 0,
-
         'Hurricanes_Happen': False,
-
         'AC_Happen': False,
-
-        'GDP_Growth': 0,
 
         'Win': False,
         'Game_Over': False
@@ -50,80 +61,62 @@ jsonObject = {
     #     b) Probability of something bad happening increases the longer the game runs (unless we invested properly)
     # 3) Return that something happens
 
+def have_lost():
+    return jsonObject['Game_Over'] or jsonObject['GDP'] < 0 or jsonObject['Budget'] < 0 or jsonObject['GHG'] > 1000000
 
-def have_lost(jsonObject):
-    if jsonObject['Game_Over'] or jsonObject['GDP'] < 0 or jsonObject['Money'] < 0:
-        return True
-    if jsonObject['Curr_Year'] - jsonObject['Start_Year'] > 200:
-        return jsonObject['GHG'] > 1000000
+def have_won():
+    return jsonObject['GHG'] < 100
 
-def have_won(jsonObject):
-    return jsonObject['GHG'] < 10000
+def update_year():
+    jsonObject['Curr_Year'] += 1
+    return jsonObject
 
-def update_climate(jsonObject):
-    if have_won(jsonObject):
+def update_ghg(input_to_ghg_map):
+    solar_benefit = jsonObject['solar'] * input_to_ghg_map['solar']
+    wind_benefit = jsonObject['wind'] * input_to_ghg_map['wind']
+    nuclear_benefit = jsonObject['nuclear'] * input_to_ghg_map['nuclear']
+    fossil_benefit = jsonObject['fossil'] * input_to_ghg_map['fossil']
+    energy_investments = solar_benefit + wind_benefit + nuclear_benefit + fossil_benefit
+    jsonObject['GHG'] *= (1.002 + energy_investments)
+    return jsonObject
+
+def update_budget(investment = ''):
+    global disasters
+    # Lose money for disasters
+    for disaster, probability in [tup for tup in disasters.items()]:
+        if random.random() > probability / 3:
+            jsonObject['Budget'] -= jsonObject['Budget'] * disaster_cost[disaster]
+            print(disaster + " has occured.")
+
+    # Transfer $$$ to investment
+    if investment in jsonObject:
+        amount_invested = jsonObject['Budget'] / 10.0
+        jsonObject[investment] += amount_invested
+        jsonObject['Budget'] -= input_to_ghg_map[investment] * amount_invested
+        jsonObject['Budget'] += input_to_ghg_map[investment] * amount_invested
+        print("Amount invested in " + investment + ": " + str(amount_invested))
+
+    jsonObject['GDP'] += (jsonObject['GDP_Growth'] + random.uniform(-.05, .0)) / 2
+    jsonObject['Budget'] += jsonObject['GDP'] / 100
+    jsonObject['Budget']
+    return jsonObject
+
+def update_game(investment = ''):
+    global jsonObject
+    if have_won():
+        jsonObject['Game_Over'] = True
         print("You have successfully avoided global warming!")
+        jsonObject['Win'] = True
         return jsonObject
-    if have_lost(jsonObject):
+    if have_lost():
         jsonObject['Game_Over'] = True
         print("Global Warming has overtaken the world. Humanity cannot continue.")
         return jsonObject
-    jsonObject['Curr_Year'] += 1
-    jsonObject['GDP'] = round(jsonObject['GDP'] * jsonObject['economy'], 2)
-    jsonObject['Money'] = round(jsonObject['Money'] + jsonObject['GDP'] * .01, 2)
-    jsonObject['GHG'] *= update_ghg(jsonObject, input_to_ghg_map)[1]
-    curr_ghg = jsonObject['GHG']
-    jsonObject['Hurricanes_Happen'] = hurCalc(curr_ghg)
-    jsonObject['AC_Happen'] = ACCalc(curr_ghg, jsonObject['fossil'], jsonObject['nuclear'])
-    jsonObject['GDP_Growth'] = ecoCalc(curr_ghg, jsonObject['solar'], jsonObject['wind'], jsonObject['nuclear'], jsonObject['fossil'])
-    jsonObject['economy'] = 1.1 + jsonObject['GDP_Growth']
+
+    update_year()
+    update_ghg(input_to_ghg_map)
+    update_budget(investment)
     return jsonObject
-
-def hurCalc(carbon):
-    x = random.random()
-    carbon += x/2
-    return carbon > 1
-    # if true, hurricane occurs
-
-def ACCalc(carbon, fSpent, nSpent):
-    x = random.random()
-    twoSpent = fSpent + nSpent
-    carbon += twoSpent/degree + x
-    return carbon > 1
-    # if true, armed conflict occurs
-
-def ecoCalc(carbon, sSpent, wSpent, nSpent, fSpent):
-    x = random.random()
-    totalSpent = sSpent + wSpent + nSpent + fSpent
-    carbon += totalSpent / degree + x
-    return carbon
-    # defines economic growth
-
-def update_ghg(jsonObject, input_to_ghg_map):
-   total_budget = jsonObject['solar'] \
-                  + jsonObject['wind'] \
-                  + jsonObject['nuclear'] \
-                  + jsonObject['fossil']
-   ghg_max_pos_val = total_budget * input_to_ghg_map['fossil']
-   ghg_max_neg_val = total_budget * input_to_ghg_map['solar'] * -1.0
-   ghg_temp_val = jsonObject['solar']* input_to_ghg_map['solar'] \
-                  + jsonObject['wind']* input_to_ghg_map['wind'] \
-                  + jsonObject['nuclear']* input_to_ghg_map['nuclear'] \
-                  + jsonObject['fossil']* input_to_ghg_map['fossil']
-   if ghg_temp_val >= 0:
-       ghg_fraction = 1.0 * ghg_temp_val / ghg_max_pos_val
-   else:
-       ghg_fraction = 1.0 * ghg_temp_val / ghg_max_neg_val
-   return (ghg_temp_val, ghg_fraction)
-
-def lose(jsonObject):
-    if jsonObject['Game_Over'] or jsonObject['GDP'] < 0 or jsonObject['Money'] < 0:
-        return True
-    if jsonObject['Curr_Year'] - jsonObject['Start_Year'] > 200:
-        return jsonObject['GHG'] > 1000000
-
-def win(jsonObject):
-    return jsonObject['GHG'] < 10000
 
 #########################################################
 # Routes
@@ -132,7 +125,8 @@ def win(jsonObject):
 @app.route("/")
 def home():
     global jsonObject
-    jsonObject['Curr_Year'] += 1
+    if not jsonObject['Game_Over']:
+        update_game()
     return json.dumps(jsonObject)
 
 @app.route('/instructions/')
@@ -152,7 +146,6 @@ def give_data():
     if request.method == 'GET':
         return str([jsonObject])
 
-
 @app.route('/receive_data/', methods=['POST'])
 def receive_data():
     global jsonObject
@@ -163,14 +156,14 @@ def receive_data():
 @app.route('/lose/', methods=['GET'])
 def lose():
     global jsonObject
-    jsonObject['Money'] -= 1000000000000
+    jsonObject['Budget'] -= 1000000000000
     jsonObject['Game_Over'] = True
     return json.dumps(jsonObject)
 
 @app.route('/win/', methods=['GET'])
 def win():
     global jsonObject
-    jsonObject['Money'] += 1
+    jsonObject['Budget'] += 1
     jsonObject['Game_Over'] = False
     return json.dumps(jsonObject)
 
@@ -184,9 +177,7 @@ def wind():
     if request.method == 'POST':
         global jsonObject
         jsonObject = request.get_json()
-        jsonObject['wind'] += 1
-        jsonObject['Money'] -= input_to_ghg_map['wind']
-        jsonObject = update_climate(jsonObject)
+        update_game('wind')
         return json.dumps(jsonObject)
 
 @app.route('/nuclear/', methods=['POST'])
@@ -194,9 +185,7 @@ def nuclear():
     if request.method == 'POST':
         global jsonObject
         jsonObject = request.get_json()
-        jsonObject['nuclear'] += 1
-        jsonObject['Money'] -= input_to_ghg_map['nuclear']
-        jsonObject = update_climate(jsonObject)
+        update_game('nuclear')
         return json.dumps(jsonObject)
 
 @app.route('/solar/', methods=['POST'])
@@ -204,9 +193,7 @@ def solar():
     if request.method == 'POST':
         global jsonObject
         jsonObject = request.get_json()
-        jsonObject['solar'] += 1
-        jsonObject['Money'] -= input_to_ghg_map['solar']
-        jsonObject = update_climate(jsonObject)
+        update_game('solar')
         return json.dumps(jsonObject)
 
 @app.route('/fossil/', methods=['POST'])
@@ -214,9 +201,7 @@ def fossil():
     if request.method == 'POST':
         global jsonObject
         jsonObject = request.get_json()
-        jsonObject['fossil'] += 1
-        jsonObject['Money'] -= input_to_ghg_map['fossil']
-        jsonObject = update_climate(jsonObject)
+        update_game('fossil')
         return json.dumps(jsonObject)
 
 if __name__ == "__main__":

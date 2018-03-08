@@ -27,8 +27,9 @@ class App extends Component {
     var url = "http://127.0.0.1:5000/"
     $.get(url).then(result => {
         this.setState(JSON.parse(result))
+        console.log(result)
       }) 
-    setTimeout( this.getData.bind(this), 1000)
+    setTimeout( this.getData.bind(this), 500)
   }
 
 
@@ -41,11 +42,13 @@ class App extends Component {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
       },
       body: JSON.stringify(this.state),
       success: console.log('success')
     })
-    
+
+      
     
   }
 
@@ -57,12 +60,12 @@ class App extends Component {
         </header>
         <div style={{'margin-top': '20px'}}>
           year
-          <h1>{this.state.Curr_Year}</h1>
+          <h1>{Math.round(this.state.Curr_Year)}</h1>
           <hr style={{'max-width': 100}} />
-          <h4> GDP: ${Math.round(this.state.GDP)}B</h4>
-          <h4> GHGe: {Math.round(this.state.GHG)}kgCO2</h4>
-          <h4>Budget: ${Math.round(this.state.Money)}B</h4>
-          <p>crop yields: 100 | hurricane strength: 0 | violence: 0 | migration: 0 | sea level: 0</p>
+          <h4> GDP: ${Math.round(this.state.GDP,3)}B</h4>
+          <h4> GHGe: {Math.round(this.state.GHG,3)}kgCO2</h4>
+          <h4>Budget: ${Math.round(this.state.Budget,3)}B</h4>
+          <p>crop yields: 100% | hurricane strength: 0 | violence: 0 | migration: 0 | sea level: 0</p>
           <hr />
           <p>invest in</p>
         </div>
@@ -74,8 +77,9 @@ class App extends Component {
             <button class="btn btn-outline-warning" onClick={this.onClick.bind(this)} id="fossil">fossil</button>
           </div>
         </div>
+      
          { this.state.Win ? <h1 style={{'color': 'lightgreen'}}><b>YOU ARE SAFE FROM CLIMATE CHANGE</b></h1> : null }
-         { this.state.Game_Over ? <h1 style={{'color': 'red'}}><b>YOU LOST TO GLOBAL WARMING</b></h1> : null }
+         { this.state.Game_Over & !this.state.Win ? <h1 style={{'color': 'red'}}><b>YOU LOST TO GLOBAL WARMING</b></h1> : null }
       </div>
     );
   }
